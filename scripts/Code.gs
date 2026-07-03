@@ -35,12 +35,20 @@ function jsonResponse(data) {
 }
 
 function sanitizePhone(raw) {
-  return String(raw || "").replace(/[^\d]/g, "");
+  var phone = String(raw || "").replace(/[\s\-().]/g, "").trim();
+  // Normalize +62 / 62 prefix to 08
+  if (phone.indexOf("+62") === 0) {
+    phone = "0" + phone.slice(3);
+  } else if (phone.indexOf("62") === 0 && phone.length >= 10) {
+    phone = "0" + phone.slice(2);
+  }
+  return phone;
 }
 
 function isValidPhone(raw) {
   var phone = sanitizePhone(raw);
   if (!phone) return false;
+  if (phone.indexOf("08") !== 0) return false;
   if (phone.length < 10 || phone.length > 15) return false;
   if (!/^\d+$/.test(phone)) return false;
   if (/^0+$/.test(phone)) return false;

@@ -58,7 +58,7 @@ export default function RSVPSection() {
 
     setStatus("loading");
     try {
-      await submitRSVP({ ...form, phone: phoneResult.sanitized });
+      await submitRSVP({ ...form, phone: phoneResult.normalized });
       setStatus("success");
     } catch (err) {
       setStatus("error");

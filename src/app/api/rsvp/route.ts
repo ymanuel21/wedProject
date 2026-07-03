@@ -146,8 +146,8 @@ export async function POST(request: Request) {
     }
 
     // Use sanitized phone
-    body.phone = phoneResult.sanitized;
-    log(`[${requestId}] Phone sanitized: ${phoneResult.sanitized.slice(0, 4)}...`);
+    body.phone = phoneResult.normalized;
+    log(`[${requestId}] Phone normalized: ${phoneResult.normalized.slice(0, 4)}...`);
 
     if (!GAS_URL) {
       log(`[${requestId}] Mock mode — GAS_URL is empty`);

@@ -1,46 +1,99 @@
+/**
+ * Indonesian phone number validation — shared across frontend, API, and GAS.
+ *
+ * Rules:
+ * - Sanitizes spaces, dashes, parens, dots
+ * - Normalizes +62 / 62 prefix → 08
+ * - Must start with 08, 10–15 digits, digits-only
+ * - Rejects all-zeros and fake repeated patterns
+ */
+
 const PHONE_MIN = 10;
 const PHONE_MAX = 15;
 
-export interface PhoneValidation {
+const FAKE_PATTERNS = [
+  /^0+$/,
+  /^08111111111+$/,
+  /^08123456789+$/,
+  /^08888888888+$/,
+  /^08999999999+$/,
+  /^(\d)\1{9,}$/,
+];
+
+export interface PhoneResult {
   valid: boolean;
-  sanitized: string;
+  normalized: string;
   message: string;
 }
 
-const INVALID_PREFIXES = ["000", "111", "222", "333", "444", "555", "666", "777", "888", "999"];
-
 export function sanitizePhone(raw: string): string {
-  return raw.replace(/[^\d+]/g, "");
+  return String(raw || "")
+    .replace(/[^\d+]/g, "")
+    .trim();
 }
 
-export function validatePhone(raw: string): PhoneValidation {
-  const sanitized = sanitizePhone(raw);
+export function normalizePhone(cleaned: string): string {
+  let phone = cleaned;
 
-  if (!sanitized) {
-    return { valid: false, sanitized: "", message: "Nomor telepon wajib diisi." };
+  if (phone.startsWith("+62")) {
+    phone = "0" + phone.slice(3);
+  } else if (phone.startsWith("62") && phone.length >= 10) {
+    phone = "0" + phone.slice(2);
   }
 
-  if (sanitized.length < PHONE_MIN) {
-    return { valid: false, sanitized, message: `Nomor telepon minimal ${PHONE_MIN} digit.` };
+  return phone;
+}
+
+export function validatePhone(raw: string): PhoneResult {
+  const cleaned = sanitizePhone(raw);
+
+  if (!cleaned) {
+    return { valid: false, normalized: "", message: "Nomor telepon wajib diisi." };
   }
 
-  if (sanitized.length > PHONE_MAX) {
-    return { valid: false, sanitized, message: `Nomor telepon maksimal ${PHONE_MAX} digit.` };
+  const normalized = normalizePhone(cleaned);
+
+  if (!/^\d+$/.test(normalized)) {
+    return {
+      valid: false,
+      normalized,
+      message: "Nomor telepon hanya boleh berisi angka.",
+    };
   }
 
-  if (!/^\d+$/.test(sanitized)) {
-    return { valid: false, sanitized, message: "Nomor telepon hanya boleh berisi angka." };
+  if (/^0+$/.test(normalized)) {
+    return { valid: false, normalized, message: "Nomor telepon tidak valid." };
   }
 
-  if (/^0+$/.test(sanitized)) {
-    return { valid: false, sanitized, message: "Nomor telepon tidak valid." };
+  if (!normalized.startsWith("08")) {
+    return {
+      valid: false,
+      normalized,
+      message: "Nomor telepon harus diawali 08.",
+    };
   }
 
-  for (const prefix of INVALID_PREFIXES) {
-    if (sanitized.startsWith(prefix) && sanitized.length <= 10) {
-      return { valid: false, sanitized, message: "Nomor telepon tidak valid." };
+  if (normalized.length < PHONE_MIN) {
+    return {
+      valid: false,
+      normalized,
+      message: `Nomor telepon minimal ${PHONE_MIN} digit.`,
+    };
+  }
+
+  if (normalized.length > PHONE_MAX) {
+    return {
+      valid: false,
+      normalized,
+      message: `Nomor telepon maksimal ${PHONE_MAX} digit.`,
+    };
+  }
+
+  for (const pattern of FAKE_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { valid: false, normalized, message: "Nomor telepon tidak valid." };
     }
   }
 
-  return { valid: true, sanitized, message: "" };
+  return { valid: true, normalized, message: "" };
 }
