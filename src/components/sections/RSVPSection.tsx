@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, useCallback } from "react";
 import { motion } from "framer-motion";
 import { submitRSVP } from "@/services/sheets";
 import type { RSVPFormData } from "@/types";
 import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { validatePhone, sanitizePhone } from "@/lib/phone-validation";
 
 const initialForm: RSVPFormData = {
   name: "",
@@ -18,18 +19,46 @@ export default function RSVPSection() {
   const [form, setForm] = useState<RSVPFormData>(initialForm);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [phoneTouched, setPhoneTouched] = useState(false);
+
+  const handlePhoneChange = useCallback((raw: string) => {
+    // Allow typing: strip non-digits but keep cursor-friendly chars
+    const filtered = raw.replace(/[^\d\s\-+]/g, "");
+    updateField("phone", filtered);
+
+    if (phoneTouched || filtered.length >= 10) {
+      const result = validatePhone(filtered);
+      setPhoneError(result.valid ? "" : result.message);
+    }
+  }, [phoneTouched]);
+
+  const handlePhoneBlur = () => {
+    setPhoneTouched(true);
+    const result = validatePhone(form.phone);
+    setPhoneError(result.valid ? "" : result.message);
+  };
+
+  const isFormValid = form.name.trim().length > 0 && !phoneError && form.phone.length > 0;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.phone.trim()) {
+
+    const phoneResult = validatePhone(form.phone);
+    if (!phoneResult.valid) {
+      setPhoneError(phoneResult.message);
+      return;
+    }
+
+    if (!form.name.trim()) {
       setStatus("error");
-      setErrorMessage("Nama dan nomor telepon wajib diisi.");
+      setErrorMessage("Nama wajib diisi.");
       return;
     }
 
     setStatus("loading");
     try {
-      await submitRSVP(form);
+      await submitRSVP({ ...form, phone: phoneResult.sanitized });
       setStatus("success");
     } catch (err) {
       setStatus("error");
@@ -99,12 +128,21 @@ export default function RSVPSection() {
             <label className="block text-sm text-charcoal/70 mb-2">Nomor Telepon</label>
             <input
               type="tel"
+              inputMode="numeric"
+              autoComplete="tel"
               value={form.phone}
-              onChange={(e) => updateField("phone", e.target.value)}
-              placeholder="0812-3456-7890"
-              className="w-full px-4 py-3 rounded-xl border border-rose-gold/20 bg-cream focus:outline-none focus:border-rose-gold/50 transition-colors text-sm"
-              required
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              onBlur={handlePhoneBlur}
+              placeholder="081234567890"
+              className={`w-full px-4 py-3 rounded-xl border bg-cream focus:outline-none transition-colors text-sm ${
+                phoneError ? "border-red-300 focus:border-red-400" : "border-rose-gold/20 focus:border-rose-gold/50"
+              }`}
+              aria-invalid={!!phoneError}
+              aria-describedby={phoneError ? "phone-error" : undefined}
             />
+            {phoneError && (
+              <p id="phone-error" className="text-red-500 text-xs mt-1.5">{phoneError}</p>
+            )}
           </div>
 
           <div>
@@ -168,7 +206,7 @@ export default function RSVPSection() {
 
           <button
             type="submit"
-            disabled={status === "loading"}
+            disabled={status === "loading" || !isFormValid}
             className="w-full py-4 bg-rose-gold hover:bg-rose-gold-dark text-white rounded-xl font-medium tracking-wide transition-all hover:shadow-lg hover:shadow-rose-gold/25 disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {status === "loading" ? (

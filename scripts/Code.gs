@@ -34,6 +34,19 @@ function jsonResponse(data) {
   );
 }
 
+function sanitizePhone(raw) {
+  return String(raw || "").replace(/[^\d]/g, "");
+}
+
+function isValidPhone(raw) {
+  var phone = sanitizePhone(raw);
+  if (!phone) return false;
+  if (phone.length < 10 || phone.length > 15) return false;
+  if (!/^\d+$/.test(phone)) return false;
+  if (/^0+$/.test(phone)) return false;
+  return true;
+}
+
 function getOrCreateSpreadsheet() {
   var props = PropertiesService.getScriptProperties();
   var id = props.getProperty(SPREADSHEET_ID_PROP);
@@ -89,13 +102,13 @@ function handlePost(e) {
 
 function handleRSVP(body) {
   var name = String(body.name || "").trim();
-  var phone = String(body.phone || "").trim();
+  var phone = sanitizePhone(body.phone);
   var attendance = String(body.attendance || "hadir");
   var guestCount = Number(body.guestCount) || 1;
   var message = String(body.message || "").slice(0, 500);
 
   if (!name) return jsonResponse({ success: false, message: "Nama wajib diisi." });
-  if (!phone) return jsonResponse({ success: false, message: "Nomor telepon wajib diisi." });
+  if (!isValidPhone(body.phone)) return jsonResponse({ success: false, message: "Nomor telepon tidak valid." });
 
   var ss = getOrCreateSpreadsheet();
   var sheet = ss.getSheetByName(RSVP_SHEET_NAME);

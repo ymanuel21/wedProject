@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { validatePhone } from "@/lib/phone-validation";
 
 // ── Configuration ─────────────────────────────────────────────
 
@@ -127,12 +128,26 @@ export async function POST(request: Request) {
     }
 
     log(`[${requestId}] Validating fields`);
-    if (!body.name || !body.phone) {
+
+    if (!body.name || !String(body.name).trim()) {
       return NextResponse.json(
-        { success: false, stage: "validation", error: "Nama dan nomor telepon wajib diisi.", status: 400 },
+        { success: false, stage: "validation", error: "Nama wajib diisi.", status: 400 },
         { status: 400 }
       );
     }
+
+    const phoneResult = validatePhone(String(body.phone || ""));
+    if (!phoneResult.valid) {
+      log(`[${requestId}] Phone validation failed`, phoneResult.message);
+      return NextResponse.json(
+        { success: false, stage: "validation", error: phoneResult.message, status: 400 },
+        { status: 400 }
+      );
+    }
+
+    // Use sanitized phone
+    body.phone = phoneResult.sanitized;
+    log(`[${requestId}] Phone sanitized: ${phoneResult.sanitized.slice(0, 4)}...`);
 
     if (!GAS_URL) {
       log(`[${requestId}] Mock mode — GAS_URL is empty`);
