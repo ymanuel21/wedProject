@@ -161,9 +161,19 @@ function handleGet(e) {
     if (!sheet) return jsonResponse({ success: false, messages: [] });
 
     var data = sheet.getDataRange().getValues();
-    var messages = [];
+    var total = Math.max(0, data.length - 1);
 
-    for (var i = 1; i < data.length; i++) {
+    var page = Math.max(1, parseInt(params.page, 10) || 1);
+    var limit = Math.min(50, Math.max(1, parseInt(params.limit, 10) || 10));
+    var totalPages = Math.max(1, Math.ceil(total / limit));
+
+    if (page > totalPages) page = totalPages;
+
+    var start = 1 + (page - 1) * limit;
+    var end = Math.min(start + limit, data.length);
+
+    var messages = [];
+    for (var i = start; i < end; i++) {
       var row = data[i];
       messages.push({
         timestamp: String(row[0] || ""),
@@ -172,7 +182,16 @@ function handleGet(e) {
       });
     }
 
-    return jsonResponse({ success: true, messages: messages });
+    return jsonResponse({
+      success: true,
+      page: page,
+      limit: limit,
+      total: total,
+      totalPages: totalPages,
+      hasPrevious: page > 1,
+      hasNext: page < totalPages,
+      messages: messages,
+    });
   }
 
   return jsonResponse({ success: false, messages: [] });

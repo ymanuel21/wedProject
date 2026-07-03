@@ -69,11 +69,22 @@ function log(step: string, detail?: unknown) {
 
 // ── GET ───────────────────────────────────────────────────────
 
-export async function GET() {
+export async function GET(request: Request) {
   const requestId = Math.random().toString(36).slice(2, 8);
 
   try {
     log(`[${requestId}] Incoming GET request`);
+
+    const { searchParams } = new URL(request.url);
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "10", 10)));
+
+    if (isNaN(page) || page < 1 || isNaN(limit) || limit < 1) {
+      return NextResponse.json(
+        { success: false, stage: "validation", error: "Invalid pagination parameters", status: 400 },
+        { status: 400 }
+      );
+    }
 
     const config = getValidatedGasUrl();
     if (!config.valid) return config.error;
@@ -83,6 +94,12 @@ export async function GET() {
       log(`[${requestId}] Mock mode`);
       return NextResponse.json({
         success: true,
+        page: 1,
+        limit: 10,
+        total: 2,
+        totalPages: 1,
+        hasPrevious: false,
+        hasNext: false,
         messages: [
           { timestamp: new Date().toISOString(), name: "Budi & Ani", message: "Selamat menempuh hidup baru! Semoga menjadi keluarga yang sakinah, mawaddah, warahmah." },
           { timestamp: new Date().toISOString(), name: "Rina", message: "Happy wedding ya Dewi & Budi! God bless your marriage always." },
@@ -90,11 +107,12 @@ export async function GET() {
       });
     }
 
-    log(`[${requestId}] Fetching from GAS`);
+    const gasParams = new URLSearchParams({ type: "guestbook", page: String(page), limit: String(limit) });
+    log(`[${requestId}] Fetching from GAS page=${page} limit=${limit}`);
 
     let response: Response;
     try {
-      response = await fetch(`${GAS_URL}?type=guestbook`, {
+      response = await fetch(`${GAS_URL}?${gasParams.toString()}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
