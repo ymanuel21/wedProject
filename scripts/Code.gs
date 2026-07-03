@@ -4,18 +4,17 @@
  * Deployment instructions:
  * 1. Open https://script.google.com and create a new project
  * 2. Paste this entire file
- * 3. In the same Google account, create a Google Sheet with two tabs:
- *    - "Wedding RSVP"   → columns: Timestamp | Name | Phone | Attendance | GuestCount | Message
- *    - "Wedding GuestBook" → columns: Timestamp | Name | Message
- * 4. Click Deploy → New Deployment → Web App
- * 5. Execute as: Me  |  Who has access: Anyone
- * 6. Copy the deployment URL
+ * 3. Click Deploy → New Deployment → Web App
+ * 4. Execute as: Me  |  Who has access: Anyone
+ * 5. Copy the deployment URL
+ * 6. The spreadsheet is auto-created on the first request.
  *
  * Note: CORS is handled by the Next.js API proxy — no CORS headers needed here.
  */
 
 var RSVP_SHEET_NAME = "Wedding RSVP";
 var GUESTBOOK_SHEET_NAME = "Wedding GuestBook";
+var SPREADSHEET_ID_PROP = "SPREADSHEET_ID";
 
 // ── Entry Points ──────────────────────────────────────────────
 
@@ -33,6 +32,36 @@ function jsonResponse(data) {
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(
     ContentService.MimeType.JSON
   );
+}
+
+function getOrCreateSpreadsheet() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty(SPREADSHEET_ID_PROP);
+
+  // Already exists
+  if (id) {
+    var existing = SpreadsheetApp.openById(id);
+    if (existing) return existing;
+  }
+
+  // Create new spreadsheet on first run
+  var ss = SpreadsheetApp.create("Wedding RSVP Data");
+  props.setProperty(SPREADSHEET_ID_PROP, ss.getId());
+
+  // Rename default sheet to RSVP
+  var defaultSheet = ss.getSheets()[0];
+  defaultSheet.setName(RSVP_SHEET_NAME);
+  defaultSheet
+    .getRange(1, 1, 1, 6)
+    .setValues([["Timestamp", "Name", "Phone", "Attendance", "GuestCount", "Message"]]);
+
+  // Create GuestBook sheet
+  var guestSheet = ss.insertSheet(GUESTBOOK_SHEET_NAME);
+  guestSheet
+    .getRange(1, 1, 1, 3)
+    .setValues([["Timestamp", "Name", "Message"]]);
+
+  return ss;
 }
 
 // ── POST Handler ──────────────────────────────────────────────
@@ -65,35 +94,18 @@ function handleRSVP(body) {
   var guestCount = Number(body.guestCount) || 1;
   var message = String(body.message || "").slice(0, 500);
 
-  if (!name) {
-    return jsonResponse({ success: false, message: "Nama wajib diisi." });
-  }
-  if (!phone) {
-    return jsonResponse({ success: false, message: "Nomor telepon wajib diisi." });
-  }
+  if (!name) return jsonResponse({ success: false, message: "Nama wajib diisi." });
+  if (!phone) return jsonResponse({ success: false, message: "Nomor telepon wajib diisi." });
 
-  var sheet =
-    SpreadsheetApp.getActiveSpreadsheet().getSheetByName(RSVP_SHEET_NAME);
+  var ss = getOrCreateSpreadsheet();
+  var sheet = ss.getSheetByName(RSVP_SHEET_NAME);
   if (!sheet) {
-    return jsonResponse({
-      success: false,
-      message: "Sheet '" + RSVP_SHEET_NAME + "' tidak ditemukan.",
-    });
+    return jsonResponse({ success: false, message: "Sheet tidak ditemukan." });
   }
 
-  sheet.appendRow([
-    new Date().toISOString(),
-    name,
-    phone,
-    attendance,
-    guestCount,
-    message,
-  ]);
+  sheet.appendRow([new Date().toISOString(), name, phone, attendance, guestCount, message]);
 
-  return jsonResponse({
-    success: true,
-    message: "RSVP berhasil dikirim. Terima kasih!",
-  });
+  return jsonResponse({ success: true, message: "RSVP berhasil dikirim. Terima kasih!" });
 }
 
 // ── Guest Book Submit ─────────────────────────────────────────
@@ -103,19 +115,13 @@ function handleGuestBookSubmit(body) {
   var message = String(body.message || "").slice(0, 500);
 
   if (!name || !message) {
-    return jsonResponse({
-      success: false,
-      message: "Nama dan ucapan wajib diisi.",
-    });
+    return jsonResponse({ success: false, message: "Nama dan ucapan wajib diisi." });
   }
 
-  var sheet =
-    SpreadsheetApp.getActiveSpreadsheet().getSheetByName(GUESTBOOK_SHEET_NAME);
+  var ss = getOrCreateSpreadsheet();
+  var sheet = ss.getSheetByName(GUESTBOOK_SHEET_NAME);
   if (!sheet) {
-    return jsonResponse({
-      success: false,
-      message: "Sheet '" + GUESTBOOK_SHEET_NAME + "' tidak ditemukan.",
-    });
+    return jsonResponse({ success: false, message: "Sheet tidak ditemukan." });
   }
 
   sheet.appendRow([new Date().toISOString(), name, message]);
@@ -129,11 +135,9 @@ function handleGet(e) {
   var params = e.parameter || {};
 
   if (params.type === "guestbook") {
-    var sheet =
-      SpreadsheetApp.getActiveSpreadsheet().getSheetByName(GUESTBOOK_SHEET_NAME);
-    if (!sheet) {
-      return jsonResponse({ success: false, messages: [] });
-    }
+    var ss = getOrCreateSpreadsheet();
+    var sheet = ss.getSheetByName(GUESTBOOK_SHEET_NAME);
+    if (!sheet) return jsonResponse({ success: false, messages: [] });
 
     var data = sheet.getDataRange().getValues();
     var messages = [];
