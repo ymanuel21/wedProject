@@ -105,9 +105,14 @@ export async function GET() {
     }
 
     const text = await response.text();
+    log(`[${requestId}] GAS response status: ${response.status}`);
+    log(`[${requestId}] GAS response body`, text.slice(0, 500));
 
     if (!response.ok) {
-      return NextResponse.json({ success: false, messages: [], stage: "gas-error", status: response.status }, { status: 502 });
+      return NextResponse.json(
+        { success: false, messages: [], stage: "gas-error", status: response.status, rawResponse: text.slice(0, 300) },
+        { status: 502 }
+      );
     }
 
     let data: { success?: boolean; messages?: unknown[] };
