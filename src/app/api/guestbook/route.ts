@@ -1,11 +1,65 @@
 import { NextResponse } from "next/server";
 
-const GAS_URL = process.env.GOOGLE_APPS_SCRIPT_URL || "";
+// ── Configuration ─────────────────────────────────────────────
 
-function maskUrl(url: string): string {
-  if (!url) return "(empty)";
-  return url.replace(/\/s\/[^/]+/, "/s/***");
+function getValidatedGasUrl(): { valid: true; url: string } | { valid: false; error: ReturnType<typeof NextResponse.json> } {
+  const raw = process.env.GOOGLE_APPS_SCRIPT_URL;
+
+  if (raw === undefined) {
+    console.log("[GuestBook API] GOOGLE_APPS_SCRIPT_URL is not set — using mock mode");
+    return { valid: true, url: "" };
+  }
+
+  const trimmed = raw.trim();
+
+  if (!trimmed) {
+    console.log("[GuestBook API] GOOGLE_APPS_SCRIPT_URL is empty — using mock mode");
+    return { valid: true, url: "" };
+  }
+
+  const masked = trimmed.replace(/\/s\/[^/]+/, "/s/***");
+  console.log(`[GuestBook API] GOOGLE_APPS_SCRIPT_URL = ${masked}`);
+
+  if (!trimmed.startsWith("https://")) {
+    console.error(`[GuestBook API] Invalid URL — must start with https://`);
+    return {
+      valid: false,
+      error: NextResponse.json(
+        { success: false, stage: "configuration", reason: "GOOGLE_APPS_SCRIPT_URL must start with https://", valuePreview: `${trimmed.slice(0, 40)}...`, status: 500 },
+        { status: 500 }
+      ),
+    };
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      valid: false,
+      error: NextResponse.json(
+        { success: false, stage: "configuration", reason: `Invalid GOOGLE_APPS_SCRIPT_URL: ${msg}`, valuePreview: `${trimmed.slice(0, 40)}...`, status: 500 },
+        { status: 500 }
+      ),
+    };
+  }
+
+  if (!parsed.hostname.endsWith("script.google.com")) {
+    return {
+      valid: false,
+      error: NextResponse.json(
+        { success: false, stage: "configuration", reason: "GOOGLE_APPS_SCRIPT_URL must point to script.google.com", hostname: parsed.hostname, status: 500 },
+        { status: 500 }
+      ),
+    };
+  }
+
+  console.log(`[GuestBook API] URL validated: ${masked}`);
+  return { valid: true, url: trimmed };
 }
+
+// ── Helpers ───────────────────────────────────────────────────
 
 function log(step: string, detail?: unknown) {
   const ts = new Date().toISOString();
@@ -20,7 +74,10 @@ export async function GET() {
 
   try {
     log(`[${requestId}] Incoming GET request`);
-    log(`[${requestId}] GAS_URL: ${maskUrl(GAS_URL)}`);
+
+    const config = getValidatedGasUrl();
+    if (!config.valid) return config.error;
+    const GAS_URL = config.url;
 
     if (!GAS_URL) {
       log(`[${requestId}] Mock mode`);
@@ -47,10 +104,7 @@ export async function GET() {
       return NextResponse.json({ success: false, messages: [], stage: "fetch-failed", error: msg }, { status: 502 });
     }
 
-    log(`[${requestId}] GAS status: ${response.status}`);
-
     const text = await response.text();
-    log(`[${requestId}] GAS body`, text.slice(0, 300));
 
     if (!response.ok) {
       return NextResponse.json({ success: false, messages: [], stage: "gas-error", status: response.status }, { status: 502 });
@@ -78,6 +132,10 @@ export async function POST(request: Request) {
 
   try {
     log(`[${requestId}] Incoming POST request`);
+
+    const config = getValidatedGasUrl();
+    if (!config.valid) return config.error;
+    const GAS_URL = config.url;
 
     let body: Record<string, unknown>;
     try {
@@ -114,8 +172,6 @@ export async function POST(request: Request) {
       log(`[${requestId}] Fetch failed`, msg);
       return NextResponse.json({ success: false, stage: "fetch-failed", error: msg }, { status: 502 });
     }
-
-    log(`[${requestId}] GAS status: ${response.status}`);
 
     const text = await response.text();
 

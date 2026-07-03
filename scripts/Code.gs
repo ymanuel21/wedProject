@@ -3,90 +3,62 @@
  *
  * Deployment instructions:
  * 1. Open https://script.google.com and create a new project
- * 2. Paste this entire file (Ctrl+A, Ctrl+V)
- * 3. In the same Google account, create two Google Sheets:
+ * 2. Paste this entire file
+ * 3. In the same Google account, create a Google Sheet with two tabs:
  *    - "Wedding RSVP"   → columns: Timestamp | Name | Phone | Attendance | GuestCount | Message
  *    - "Wedding GuestBook" → columns: Timestamp | Name | Message
  * 4. Click Deploy → New Deployment → Web App
  * 5. Execute as: Me  |  Who has access: Anyone
- * 6. Copy the deployment URL and set it as NEXT_PUBLIC_GOOGLE_APPS_SCRIPT_URL
+ * 6. Copy the deployment URL
+ *
+ * Note: CORS is handled by the Next.js API proxy — no CORS headers needed here.
  */
 
 var RSVP_SHEET_NAME = "Wedding RSVP";
 var GUESTBOOK_SHEET_NAME = "Wedding GuestBook";
-var ALLOWED_ORIGIN =
-  PropertiesService.getScriptProperties().getProperty("ALLOWED_ORIGIN") || "*";
 
 // ── Entry Points ──────────────────────────────────────────────
 
 function doPost(e) {
-  return handleRequest_(e, "POST");
+  return handlePost(e);
 }
 
 function doGet(e) {
-  return handleRequest_(e, "GET");
+  return handleGet(e);
 }
 
-// ── Request Router ────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────
 
-function handleRequest_(e, method) {
-  var output = ContentService.createTextOutput();
-  output.setMimeType(ContentService.MimeType.JSON);
-
-  var headers = {
-    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
-
-  if (method === "OPTIONS") {
-    output.setContent(JSON.stringify({ success: true }));
-    setHeaders_(output, headers);
-    return output;
-  }
-
-  if (method === "GET") {
-    return handleGet_(e, output, headers);
-  }
-
-  return handlePost_(e, output, headers);
+function jsonResponse(data) {
+  return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(
+    ContentService.MimeType.JSON
+  );
 }
 
 // ── POST Handler ──────────────────────────────────────────────
 
-function handlePost_(e, output, headers) {
+function handlePost(e) {
   var body;
-
   try {
     body = JSON.parse(e.postData.contents);
   } catch (err) {
-    output.setContent(
-      JSON.stringify({ success: false, message: "Invalid JSON" })
-    );
-    setHeaders_(output, headers);
-    return output;
+    return jsonResponse({ success: false, message: "Invalid JSON" });
   }
 
-  var type = body.type;
-
-  if (type === "rsvp") {
-    return handleRSVP_(body, output, headers);
+  if (body.type === "rsvp") {
+    return handleRSVP(body);
   }
 
-  if (type === "guestbook") {
-    return handleGuestBookSubmit_(body, output, headers);
+  if (body.type === "guestbook") {
+    return handleGuestBookSubmit(body);
   }
 
-  output.setContent(
-    JSON.stringify({ success: false, message: "Unknown type: " + type })
-  );
-  setHeaders_(output, headers);
-  return output;
+  return jsonResponse({ success: false, message: "Unknown type: " + body.type });
 }
 
 // ── RSVP ──────────────────────────────────────────────────────
 
-function handleRSVP_(body, output, headers) {
+function handleRSVP(body) {
   var name = String(body.name || "").trim();
   var phone = String(body.phone || "").trim();
   var attendance = String(body.attendance || "hadir");
@@ -94,33 +66,19 @@ function handleRSVP_(body, output, headers) {
   var message = String(body.message || "").slice(0, 500);
 
   if (!name) {
-    output.setContent(
-      JSON.stringify({ success: false, message: "Nama wajib diisi." })
-    );
-    setHeaders_(output, headers);
-    return output;
+    return jsonResponse({ success: false, message: "Nama wajib diisi." });
   }
-
   if (!phone) {
-    output.setContent(
-      JSON.stringify({ success: false, message: "Nomor telepon wajib diisi." })
-    );
-    setHeaders_(output, headers);
-    return output;
+    return jsonResponse({ success: false, message: "Nomor telepon wajib diisi." });
   }
 
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(
-    RSVP_SHEET_NAME
-  );
+  var sheet =
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName(RSVP_SHEET_NAME);
   if (!sheet) {
-    output.setContent(
-      JSON.stringify({
-        success: false,
-        message: "Sheet tidak ditemukan: " + RSVP_SHEET_NAME,
-      })
-    );
-    setHeaders_(output, headers);
-    return output;
+    return jsonResponse({
+      success: false,
+      message: "Sheet '" + RSVP_SHEET_NAME + "' tidak ditemukan.",
+    });
   }
 
   sheet.appendRow([
@@ -132,76 +90,54 @@ function handleRSVP_(body, output, headers) {
     message,
   ]);
 
-  output.setContent(
-    JSON.stringify({
-      success: true,
-      message: "RSVP berhasil dikirim. Terima kasih!",
-    })
-  );
-  setHeaders_(output, headers);
-  return output;
+  return jsonResponse({
+    success: true,
+    message: "RSVP berhasil dikirim. Terima kasih!",
+  });
 }
 
 // ── Guest Book Submit ─────────────────────────────────────────
 
-function handleGuestBookSubmit_(body, output, headers) {
+function handleGuestBookSubmit(body) {
   var name = String(body.name || "").trim();
   var message = String(body.message || "").slice(0, 500);
 
   if (!name || !message) {
-    output.setContent(
-      JSON.stringify({
-        success: false,
-        message: "Nama dan ucapan wajib diisi.",
-      })
-    );
-    setHeaders_(output, headers);
-    return output;
+    return jsonResponse({
+      success: false,
+      message: "Nama dan ucapan wajib diisi.",
+    });
   }
 
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(
-    GUESTBOOK_SHEET_NAME
-  );
+  var sheet =
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName(GUESTBOOK_SHEET_NAME);
   if (!sheet) {
-    output.setContent(
-      JSON.stringify({
-        success: false,
-        message: "Sheet tidak ditemukan: " + GUESTBOOK_SHEET_NAME,
-      })
-    );
-    setHeaders_(output, headers);
-    return output;
+    return jsonResponse({
+      success: false,
+      message: "Sheet '" + GUESTBOOK_SHEET_NAME + "' tidak ditemukan.",
+    });
   }
 
   sheet.appendRow([new Date().toISOString(), name, message]);
 
-  output.setContent(
-    JSON.stringify({ success: true, message: "Ucapan terkirim!" })
-  );
-  setHeaders_(output, headers);
-  return output;
+  return jsonResponse({ success: true, message: "Ucapan terkirim!" });
 }
 
 // ── GET Handler (Guest Book Reader) ───────────────────────────
 
-function handleGet_(e, output, headers) {
+function handleGet(e) {
   var params = e.parameter || {};
-  var type = params.type;
 
-  if (type === "guestbook") {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(
-      GUESTBOOK_SHEET_NAME
-    );
+  if (params.type === "guestbook") {
+    var sheet =
+      SpreadsheetApp.getActiveSpreadsheet().getSheetByName(GUESTBOOK_SHEET_NAME);
     if (!sheet) {
-      output.setContent(JSON.stringify({ success: false, messages: [] }));
-      setHeaders_(output, headers);
-      return output;
+      return jsonResponse({ success: false, messages: [] });
     }
 
     var data = sheet.getDataRange().getValues();
     var messages = [];
 
-    // Skip header row (index 0), map remaining rows
     for (var i = 1; i < data.length; i++) {
       var row = data[i];
       messages.push({
@@ -211,22 +147,8 @@ function handleGet_(e, output, headers) {
       });
     }
 
-    output.setContent(JSON.stringify({ success: true, messages: messages }));
-    setHeaders_(output, headers);
-    return output;
+    return jsonResponse({ success: true, messages: messages });
   }
 
-  output.setContent(JSON.stringify({ success: false, messages: [] }));
-  setHeaders_(output, headers);
-  return output;
-}
-
-// ── Header Helper ─────────────────────────────────────────────
-
-function setHeaders_(output, headers) {
-  var keys = Object.keys(headers);
-  for (var i = 0; i < keys.length; i++) {
-    var key = keys[i];
-    output.addHeader(key, headers[key]);
-  }
+  return jsonResponse({ success: false, messages: [] });
 }

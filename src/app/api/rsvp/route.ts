@@ -1,6 +1,91 @@
 import { NextResponse } from "next/server";
 
-const GAS_URL = process.env.GOOGLE_APPS_SCRIPT_URL || "";
+// ── Configuration ─────────────────────────────────────────────
+
+function getValidatedGasUrl(): { valid: true; url: string } | { valid: false; error: ReturnType<typeof NextResponse.json> } {
+  const raw = process.env.GOOGLE_APPS_SCRIPT_URL;
+
+  // Not set at all
+  if (raw === undefined) {
+    console.log("[RSVP API] GOOGLE_APPS_SCRIPT_URL is not set — using mock mode");
+    return { valid: true, url: "" };
+  }
+
+  const trimmed = raw.trim();
+
+  // Set but empty
+  if (!trimmed) {
+    console.log("[RSVP API] GOOGLE_APPS_SCRIPT_URL is empty — using mock mode");
+    return { valid: true, url: "" };
+  }
+
+  // Log masked value for debugging
+  const masked = trimmed.replace(/\/s\/[^/]+/, "/s/***");
+  console.log(`[RSVP API] GOOGLE_APPS_SCRIPT_URL = ${masked}`);
+
+  // Must start with https://
+  if (!trimmed.startsWith("https://")) {
+    console.error(`[RSVP API] Invalid URL — must start with https://. Got: ${masked}`);
+    return {
+      valid: false,
+      error: NextResponse.json(
+        {
+          success: false,
+          stage: "configuration",
+          reason: "GOOGLE_APPS_SCRIPT_URL must start with https://",
+          valuePreview: `${trimmed.slice(0, 40)}...`,
+          status: 500,
+        },
+        { status: 500 }
+      ),
+    };
+  }
+
+  // Validate as a proper URL
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[RSVP API] Invalid URL — ${msg}. Raw: ${masked}`);
+    return {
+      valid: false,
+      error: NextResponse.json(
+        {
+          success: false,
+          stage: "configuration",
+          reason: `Invalid GOOGLE_APPS_SCRIPT_URL: ${msg}`,
+          valuePreview: `${trimmed.slice(0, 40)}...`,
+          status: 500,
+        },
+        { status: 500 }
+      ),
+    };
+  }
+
+  // Must be script.google.com
+  if (!parsed.hostname.endsWith("script.google.com")) {
+    console.error(`[RSVP API] Wrong hostname: ${parsed.hostname}`);
+    return {
+      valid: false,
+      error: NextResponse.json(
+        {
+          success: false,
+          stage: "configuration",
+          reason: "GOOGLE_APPS_SCRIPT_URL must point to script.google.com",
+          hostname: parsed.hostname,
+          status: 500,
+        },
+        { status: 500 }
+      ),
+    };
+  }
+
+  console.log(`[RSVP API] URL validated: ${masked}`);
+  return { valid: true, url: trimmed };
+}
+
+// ── Helpers ───────────────────────────────────────────────────
 
 function maskUrl(url: string): string {
   if (!url) return "(empty)";
@@ -13,12 +98,21 @@ function log(step: string, detail?: unknown) {
   console.log(`[RSVP API] [${ts}] ${step} ${d}`);
 }
 
+// ── Handler ───────────────────────────────────────────────────
+
 export async function POST(request: Request) {
   const requestId = Math.random().toString(36).slice(2, 8);
 
   try {
     log(`[${requestId}] Incoming request`);
-    log(`[${requestId}] GAS_URL: ${maskUrl(GAS_URL)}`);
+
+    // Validate configuration before anything else
+    const config = getValidatedGasUrl();
+    if (!config.valid) {
+      log(`[${requestId}] Configuration invalid — returning error`);
+      return config.error;
+    }
+    const GAS_URL = config.url;
 
     let body: Record<string, unknown>;
     try {
@@ -61,12 +155,7 @@ export async function POST(request: Request) {
       const msg = err instanceof Error ? err.message : String(err);
       log(`[${requestId}] Fetch failed`, msg);
       return NextResponse.json(
-        {
-          success: false,
-          stage: "fetch-google-apps-script",
-          error: msg,
-          status: 502,
-        },
+        { success: false, stage: "fetch-google-apps-script", error: msg, status: 502 },
         { status: 502 }
       );
     }
@@ -78,12 +167,7 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       return NextResponse.json(
-        {
-          success: false,
-          stage: "google-apps-script-error",
-          error: responseText.slice(0, 300),
-          status: response.status,
-        },
+        { success: false, stage: "google-apps-script-error", error: responseText.slice(0, 300), status: response.status },
         { status: 502 }
       );
     }
@@ -94,13 +178,7 @@ export async function POST(request: Request) {
     } catch {
       log(`[${requestId}] GAS response is not valid JSON`);
       return NextResponse.json(
-        {
-          success: false,
-          stage: "invalid-json-response",
-          error: "Google Apps Script returned non-JSON response",
-          rawResponse: responseText.slice(0, 200),
-          status: 502,
-        },
+        { success: false, stage: "invalid-json-response", error: "Google Apps Script returned non-JSON response", rawResponse: responseText.slice(0, 200), status: 502 },
         { status: 502 }
       );
     }
@@ -111,14 +189,8 @@ export async function POST(request: Request) {
     const msg = error instanceof Error ? error.message : String(error);
     const stack = error instanceof Error ? error.stack : undefined;
     log(`[${requestId}] UNCAUGHT ERROR`, { message: msg, stack: stack?.slice(0, 500) });
-
     return NextResponse.json(
-      {
-        success: false,
-        stage: "unexpected-error",
-        error: msg,
-        status: 500,
-      },
+      { success: false, stage: "unexpected-error", error: msg, status: 500 },
       { status: 500 }
     );
   }
