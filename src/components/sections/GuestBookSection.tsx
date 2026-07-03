@@ -54,10 +54,9 @@ export default function GuestBookSection() {
   return (
     <section className="py-24 px-6">
       <motion.div
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.8 }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
         className="max-w-lg mx-auto"
       >
         <p className="text-center text-rose-gold tracking-[0.2em] text-sm mb-4">
