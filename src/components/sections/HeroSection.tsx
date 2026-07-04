@@ -1,20 +1,24 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { WEDDING_DATA } from "@/constants/wedding";
 import { useCountdown } from "@/hooks/useCountdown";
 import { Heart } from "lucide-react";
-
 export default function HeroSection() {
-  const { couple, date } = WEDDING_DATA;
+  const { couple, date, heroImage } = WEDDING_DATA;
   const { days, hours, minutes, seconds, isExpired } = useCountdown(date);
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-rose-gold/5 to-cream" />
-      <div
-        className="absolute inset-0 bg-cover bg-center opacity-20"
-        style={{ backgroundImage: "url('/hero-bg.svg')" }}
+      <Image
+        src={heroImage}
+        alt="Wedding venue with elegant floral decorations"
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover opacity-20"
       />
 
       <motion.div

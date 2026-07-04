@@ -23,7 +23,7 @@ export default function RSVPSection() {
   const [phoneTouched, setPhoneTouched] = useState(false);
 
   const handlePhoneChange = useCallback((raw: string) => {
-    // Allow typing: strip non-digits but keep cursor-friendly chars
+    // Keep cursor-friendly chars during typing; strict validation on blur
     const filtered = raw.replace(/[^\d\s\-+]/g, "");
     updateField("phone", filtered);
 

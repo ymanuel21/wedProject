@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { WEDDING_DATA } from "@/constants/wedding";
 import { Heart } from "lucide-react";
 
@@ -44,7 +45,16 @@ export default function LoveStorySection() {
                   index % 2 === 0 ? "md:pr-12 md:text-right" : "md:pl-12"
                 }`}
               >
-                <div className="bg-white rounded-2xl p-6 border border-rose-gold/10 shadow-sm ml-10 md:ml-0">
+                <div className="bg-white rounded-2xl p-6 border border-rose-gold/10 shadow-sm ml-10 md:ml-0 overflow-hidden">
+                  <div className="relative aspect-[4/3] mb-4 rounded-xl overflow-hidden">
+                    <Image
+                      src={story.image}
+                      alt={story.title}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      className="object-cover"
+                    />
+                  </div>
                   <div className="flex items-center gap-2 mb-2 text-rose-gold">
                     <Heart size={12} className="fill-rose-gold" />
                     <span className="text-xs tracking-wide">{story.date}</span>

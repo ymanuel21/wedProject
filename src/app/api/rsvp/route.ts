@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { validatePhone } from "@/lib/phone-validation";
 
-// ── Configuration ─────────────────────────────────────────────
+// ── Configuration ──
 
 function getValidatedGasUrl(): { valid: true; url: string } | { valid: false; error: ReturnType<typeof NextResponse.json> } {
   const raw = process.env.GOOGLE_APPS_SCRIPT_URL;
 
-  // Not set at all
   if (raw === undefined) {
     console.log("[RSVP API] GOOGLE_APPS_SCRIPT_URL is not set — using mock mode");
     return { valid: true, url: "" };
@@ -14,17 +13,14 @@ function getValidatedGasUrl(): { valid: true; url: string } | { valid: false; er
 
   const trimmed = raw.trim();
 
-  // Set but empty
   if (!trimmed) {
     console.log("[RSVP API] GOOGLE_APPS_SCRIPT_URL is empty — using mock mode");
     return { valid: true, url: "" };
   }
 
-  // Log masked value for debugging
   const masked = trimmed.replace(/\/s\/[^/]+/, "/s/***");
   console.log(`[RSVP API] GOOGLE_APPS_SCRIPT_URL = ${masked}`);
 
-  // Must start with https://
   if (!trimmed.startsWith("https://")) {
     console.error(`[RSVP API] Invalid URL — must start with https://. Got: ${masked}`);
     return {
@@ -42,7 +38,6 @@ function getValidatedGasUrl(): { valid: true; url: string } | { valid: false; er
     };
   }
 
-  // Validate as a proper URL
   let parsed: URL;
   try {
     parsed = new URL(trimmed);
@@ -64,7 +59,6 @@ function getValidatedGasUrl(): { valid: true; url: string } | { valid: false; er
     };
   }
 
-  // Must be script.google.com
   if (!parsed.hostname.endsWith("script.google.com")) {
     console.error(`[RSVP API] Wrong hostname: ${parsed.hostname}`);
     return {
@@ -86,7 +80,7 @@ function getValidatedGasUrl(): { valid: true; url: string } | { valid: false; er
   return { valid: true, url: trimmed };
 }
 
-// ── Helpers ───────────────────────────────────────────────────
+// ── Helpers ──
 
 function maskUrl(url: string): string {
   if (!url) return "(empty)";
@@ -99,7 +93,7 @@ function log(step: string, detail?: unknown) {
   console.log(`[RSVP API] [${ts}] ${step} ${d}`);
 }
 
-// ── Handler ───────────────────────────────────────────────────
+// ── Handler ──
 
 export async function POST(request: Request) {
   const requestId = Math.random().toString(36).slice(2, 8);
@@ -107,7 +101,6 @@ export async function POST(request: Request) {
   try {
     log(`[${requestId}] Incoming request`);
 
-    // Validate configuration before anything else
     const config = getValidatedGasUrl();
     if (!config.valid) {
       log(`[${requestId}] Configuration invalid — returning error`);
@@ -145,7 +138,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Use sanitized phone
     body.phone = phoneResult.normalized;
     log(`[${requestId}] Phone normalized: ${phoneResult.normalized.slice(0, 4)}...`);
 

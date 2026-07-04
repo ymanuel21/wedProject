@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-// ── Configuration ─────────────────────────────────────────────
+// ── Configuration ──
 
 function getValidatedGasUrl(): { valid: true; url: string } | { valid: false; error: ReturnType<typeof NextResponse.json> } {
   const raw = process.env.GOOGLE_APPS_SCRIPT_URL;
@@ -59,7 +59,7 @@ function getValidatedGasUrl(): { valid: true; url: string } | { valid: false; er
   return { valid: true, url: trimmed };
 }
 
-// ── Helpers ───────────────────────────────────────────────────
+// ── Helpers ──
 
 function log(step: string, detail?: unknown) {
   const ts = new Date().toISOString();
@@ -67,7 +67,7 @@ function log(step: string, detail?: unknown) {
   console.log(`[GuestBook API] [${ts}] ${step} ${d}`);
 }
 
-// ── GET ───────────────────────────────────────────────────────
+// ── GET ──
 
 export async function GET(request: Request) {
   const requestId = Math.random().toString(36).slice(2, 8);
@@ -148,7 +148,7 @@ export async function GET(request: Request) {
   }
 }
 
-// ── POST ──────────────────────────────────────────────────────
+// ── POST ──
 
 export async function POST(request: Request) {
   const requestId = Math.random().toString(36).slice(2, 8);

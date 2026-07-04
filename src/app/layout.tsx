@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     title: "Dewi & Budi — Wedding Invitation",
     description:
       "You are invited to celebrate the wedding of Dewi Amalia and Budi Manuel.",
-    images: ["/og-image.svg"],
+    images: ["/images/og-image.jpg"],
     type: "website",
   },
 };

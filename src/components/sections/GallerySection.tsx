@@ -62,6 +62,7 @@ export default function GallerySection() {
                     alt={photo.alt}
                     fill
                     sizes="(max-width: 768px) 50vw, 33vw"
+                    loading={index === 0 ? "eager" : "lazy"}
                     className="object-cover transition-transform duration-500 group-hover:scale-110"
                   />
                 </div>

@@ -1,11 +1,7 @@
 /**
- * Indonesian phone number validation — shared across frontend, API, and GAS.
- *
- * Rules:
- * - Sanitizes spaces, dashes, parens, dots
- * - Normalizes +62 / 62 prefix → 08
- * - Must start with 08, 10–15 digits, digits-only
- * - Rejects all-zeros and fake repeated patterns
+ * Indonesian phone validation — shared across frontend, API, and GAS.
+ * Sanitizes input, normalizes +62/62 → 08, requires 08 prefix, 10-15 digits,
+ * rejects fake/repeated patterns.
  */
 
 const PHONE_MIN = 10;

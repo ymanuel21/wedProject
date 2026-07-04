@@ -6,8 +6,7 @@ import { WEDDING_DATA } from "@/constants/wedding";
 import { Heart } from "lucide-react";
 
 function CurrentYear() {
-  // `new Date().getFullYear()` is deterministic and fast — safe to call during render.
-  // The hydration risk is negligible (only on Dec 31 23:59:59).
+  // Safe during render: only mismatches across year boundary at midnight.
   const [year] = useState(() => new Date().getFullYear());
   return <>{year}</>;
 }

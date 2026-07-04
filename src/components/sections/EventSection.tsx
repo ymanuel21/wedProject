@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { WEDDING_DATA } from "@/constants/wedding";
 import { MapPin, Clock, Calendar } from "lucide-react";
 
@@ -31,8 +32,18 @@ export default function EventSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.2, duration: 0.6 }}
-              className="bg-cream rounded-2xl p-8 border border-rose-gold/10 hover:border-rose-gold/20 transition-colors"
+              className="bg-cream rounded-2xl p-8 border border-rose-gold/10 hover:border-rose-gold/20 transition-colors overflow-hidden"
             >
+              <div className="relative aspect-[4/3] mb-6 rounded-xl overflow-hidden">
+                <Image
+                  src={event.image}
+                  alt={event.venue}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  className="object-cover"
+                />
+              </div>
+
               <h3 className="font-serif text-xl text-rose-gold mb-6">
                 {event.title}
               </h3>

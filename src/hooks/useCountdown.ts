@@ -15,14 +15,8 @@ const PLACEHOLDER: CountdownTime = {
 /**
  * Real-time countdown to a target date.
  *
- * The initial state is a static placeholder (all zeros) so the server HTML
- * and the first client render are identical. After hydration, useEffect fires
- * and replaces the placeholder with actual calculated values, then updates
- * every second.
- *
- * This avoids the hydration mismatch that occurs when `new Date()` is called
- * inside a useState initializer — the server and client would produce
- * different values because time passes between SSR and hydration.
+ * Renders zeros on server, swaps to real values after mount to avoid
+ * hydration mismatch (new Date() differs between SSR and client).
  */
 export function useCountdown(targetDate: Date): CountdownTime {
   const [time, setTime] = useState<CountdownTime>(PLACEHOLDER);
